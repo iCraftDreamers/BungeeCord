@@ -7,15 +7,8 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelOption;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.Objects;
-import java.util.Queue;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import java.util.*;
+import lombok.Getter; //import lombok.RequiredArgsConstructor;
 import lombok.Synchronized;
 import lombok.ToString;
 import net.md_5.bungee.api.Callback;
@@ -32,7 +25,7 @@ import net.md_5.bungee.protocol.DefinedPacket;
 import net.md_5.bungee.protocol.packet.PluginMessage;
 
 // CHECKSTYLE:OFF
-@RequiredArgsConstructor
+//@RequiredArgsConstructor
 @ToString(of =
 {
     "name", "socketAddress", "restricted"
@@ -44,7 +37,7 @@ public class BungeeServerInfo implements ServerInfo
     @Getter
     private final String name;
     @Getter
-    private final SocketAddress socketAddress;
+    private SocketAddress socketAddress;
     private final Collection<ProxiedPlayer> players = new ArrayList<>();
     @Getter
     private final String motd;
@@ -52,6 +45,16 @@ public class BungeeServerInfo implements ServerInfo
     private final boolean restricted;
     @Getter
     private final Queue<DefinedPacket> packetQueue = new LinkedList<>();
+    private Date lastUpdateDate = new Date();
+    private final int ttl = 1000;
+
+    public BungeeServerInfo(String name, SocketAddress socketAddress, String motd, boolean restricted)
+    {
+        this.name = name;
+        this.socketAddress = socketAddress;
+        this.motd = motd;
+        this.restricted = restricted;
+    }
 
     @Synchronized("players")
     public void addPlayer(ProxiedPlayer player)
@@ -144,7 +147,17 @@ public class BungeeServerInfo implements ServerInfo
     @Override
     public InetSocketAddress getAddress()
     {
-        return (InetSocketAddress) socketAddress;
+        InetSocketAddress base = (InetSocketAddress) socketAddress;
+        String str = base.getHostString();
+        boolean isIpAddress = str.charAt( str.length() - 1 ) >= '0' && str.charAt( str.length() - 1 ) <= '9';
+        if ( isIpAddress || lastUpdateDate.getTime() > System.currentTimeMillis() - ttl )
+        {
+            return base;
+        }
+        lastUpdateDate = new Date();
+        InetSocketAddress target = new InetSocketAddress( base.getHostString(), base.getPort() );
+        socketAddress = target;
+        return target;
     }
 
     @Override
